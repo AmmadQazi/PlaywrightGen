@@ -308,12 +308,7 @@ export const SimulationPreview: React.FC<SimulationPreviewProps> = ({ status, on
         {status === TestStatus.READY || status === TestStatus.SUCCESS ? (
            <button 
              onClick={onRun}
-             disabled={status === TestStatus.SIMULATING}
-             className={`text-sm px-4 py-1.5 rounded-md font-medium transition-colors flex items-center gap-2 ${
-                status === TestStatus.SIMULATING 
-                ? 'bg-indigo-100 text-indigo-400 cursor-not-allowed'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-             }`}
+             className="text-sm px-4 py-1.5 rounded-md font-medium transition-colors flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
            >
              {status === TestStatus.SUCCESS ? 'Re-run Simulation' : 'Run Simulation'}
            </button>
