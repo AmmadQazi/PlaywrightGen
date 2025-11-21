@@ -1,84 +1,93 @@
-```typescript
 import { test, expect, Page } from '@playwright/test';
 
 test.describe('Contact Form Submission', () => {
-  const TARGET_URL = 'https://www.mymondi.net/en/ufp/';
-  const CONTACT_FORM_API_ENDPOINT = '**/umbraco/api/contact/submit'; // Wildcard for host flexibility
+    const TARGET_URL = 'https://www.mymondi.net/en/ufp/';
+    const CONTACT_FORM_API_ENDPOINT = '**/api/contact/submit'; // The actual API endpoint for form submission
 
-  test('should fill out the contact form and intercept the POST request payload', async ({ page }) => {
-    let interceptedPayload: any | null = null;
-    let requestHandled = false;
+    test('should fill out the contact form and intercept the POST request payload', async ({ page }) => {
+        let interceptedRequestPayload: any;
 
-    // 1. Navigate to the homepage
-    await page.goto(TARGET_URL);
-    await expect(page).toHaveURL(TARGET_URL);
+        // 1. Navigate to the target URL
+        await page.goto(TARGET_URL);
 
-    // 2. Scroll to the contact form section
-    // The contact form is usually at the bottom or in a dedicated section.
-    // We can locate a prominent element within that section and scroll into view.
-    const contactFormHeading = page.getByRole('heading', { name: 'Contact Us' });
-    await contactFormHeading.scrollIntoViewIfNeeded();
-    await expect(contactFormHeading).toBeVisible();
+        // 2. Scroll to the contact form section
+        // The contact form is usually at the bottom of the page.
+        // We can locate a unique element within the contact section and scroll into view.
+        const contactSectionHeading = page.getByRole('heading', { name: 'Contact us' });
+        await contactSectionHeading.scrollIntoViewIfNeeded();
+        await expect(contactSectionHeading).toBeVisible(); // Ensure the section is visible
 
-    // 3. Set up API route interception for the contact form submission
-    // We'll intercept the POST request to the contact form API endpoint.
-    // We capture the request payload and then mock a successful response.
-    await page.route(CONTACT_FORM_API_ENDPOINT, async (route) => {
-      // Ensure it's a POST request
-      if (route.request().method() === 'POST') {
-        interceptedPayload = route.request().postDataJSON();
-        requestHandled = true;
+        // 3. Set up API route interception for the contact form submission
+        // We will intercept the POST request to the contact form API endpoint.
+        // The request will be fulfilled with a mock response to prevent actual submission.
+        await page.route(CONTACT_FORM_API_ENDPOINT, async route => {
+            // Assert that the request method is POST
+            expect(route.request().method()).toBe('POST');
 
-        // Mock a successful response to prevent actual form submission
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ success: true, message: 'Form submission mocked successfully.' }),
+            // Store the request payload for later assertions
+            interceptedRequestPayload = route.request().postDataJSON();
+
+            // Fulfill the request with a mock success response
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ success: true, message: 'Form submitted successfully (mocked)' }),
+            });
         });
-      } else {
-        // For other methods (e.g., OPTIONS preflight), continue without modification
-        await route.continue();
-      }
+
+        // 4. Fill in the Name field
+        await page.getByLabel('Name').fill('John Doe');
+
+        // 5. Fill in the Email field
+        await page.getByLabel('Email').fill('john.doe@example.com');
+
+        // 6. Fill in the Company field
+        await page.getByLabel('Company').fill('Acme Corp');
+
+        // 7. Fill in the Phone field
+        await page.getByLabel('Phone').fill('+1234567890');
+
+        // 8. Select a Country from the dropdown
+        // The country field is a select element.
+        await page.getByLabel('Country').selectOption('United States');
+
+        // 9. Fill in the Message field
+        await page.getByLabel('Message').fill('This is a test message from Playwright automation.');
+
+        // 10. Check the Privacy Policy agreement checkbox
+        // The checkbox has a label "I agree to the processing of my personal data..."
+        await page.getByLabel('I agree to the processing of my personal data').check();
+
+        // 11. Click the Submit button
+        await page.getByRole('button', { name: 'Submit' }).click();
+
+        // 12. Wait for the intercepted request to be processed
+        // We need to ensure the route handler has executed and captured the payload.
+        // A simple way is to wait for the network idle or for a specific response.
+        // Since we're fulfilling, we can wait for the mock response to be received.
+        // Alternatively, we can use page.waitForRequest or page.waitForResponse if we don't fulfill.
+        // For this scenario, since we're fulfilling, the route handler itself captures the payload.
+        // We just need to ensure the click action has triggered the request.
+        // A short pause or waiting for a UI change (like a success message) can help.
+        // For now, we'll rely on the `interceptedRequestPayload` being set.
+        await page.waitForTimeout(500); // Small wait to ensure the network request is processed
+
+        // 13. Assert the intercepted request payload structure and values
+        expect(interceptedRequestPayload).toBeDefined();
+        expect(interceptedRequestPayload).toEqual({
+            name: 'John Doe',
+            email: 'john.doe@example.com',
+            company: 'Acme Corp',
+            phone: '+1234567890',
+            country: 'United States',
+            message: 'This is a test message from Playwright automation.',
+            privacyPolicyAccepted: true,
+        });
+
+        // 14. Optionally, assert for a success message on the UI (if the mock response triggers one)
+        // This depends on how the frontend handles the 200 OK mock response.
+        // For this specific site, after submitting, a success message appears in a modal.
+        const successMessage = page.getByText('Thank you for your message. We will get back to you shortly.');
+        await expect(successMessage).toBeVisible();
     });
-
-    // 4. Fill out the contact form fields
-    // Using semantic locators (getByLabel) for robustness.
-    await page.getByLabel('Name').fill('John Doe');
-    await page.getByLabel('Email').fill('john.doe@example.com');
-    await page.getByLabel('Company').fill('Acme Corp');
-    await page.getByLabel('Phone').fill('+1234567890');
-    await page.getByLabel('Message').fill('This is a test message from Playwright automation.');
-
-    // 5. Agree to the Privacy Policy
-    // Locate the checkbox by its associated text or role.
-    await page.getByLabel('I agree to the Privacy Policy').check();
-    await expect(page.getByLabel('I agree to the Privacy Policy')).toBeChecked();
-
-    // 6. Click the submit button and wait for the request to be handled
-    // We use Promise.all to wait for both the click action and the route handler to complete.
-    await Promise.all([
-      page.getByRole('button', { name: 'Submit' }).click(),
-      page.waitForResponse(response => response.url().includes(CONTACT_FORM_API_ENDPOINT) && response.request().method() === 'POST'),
-    ]);
-
-    // 7. Assert that the request was intercepted and the payload was captured
-    expect(requestHandled).toBe(true);
-    expect(interceptedPayload).not.toBeNull();
-
-    // 8. Assert the structure and content of the intercepted payload
-    expect(interceptedPayload).toEqual({
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      company: 'Acme Corp',
-      phone: '+1234567890',
-      message: 'This is a test message from Playwright automation.',
-      privacyPolicy: true, // Expecting boolean true as per form behavior
-    });
-
-    // 9. Verify a success message on the UI (optional, based on mock response)
-    // Since we mocked a success, the UI might show a success message.
-    // This specific website shows a message like "Thank you for your message..."
-    await expect(page.getByText('Thank you for your message. We will get back to you shortly.')).toBeVisible();
-  });
 });
-```
