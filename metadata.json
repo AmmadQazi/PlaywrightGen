@@ -1,0 +1,5 @@
+{
+  "name": "PlaywrightGen - Mondi Wrapper",
+  "description": "A sophisticated AI-powered tool to generate, visualize, and plan Playwright tests for the Mondi UFP portal, covering both UI interactions and API network interception.",
+  "requestFramePermissions": []
+}
